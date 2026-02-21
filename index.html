@@ -452,14 +452,56 @@
     }
 
     @media (max-width: 768px) {
-      .hero { grid-template-columns: 1fr; }
-      .hero-right { display: none; }
-      .hero-left { padding: 7rem 2rem 4rem; }
-      section { padding: 5rem 2rem; }
-      .about-grid { grid-template-columns: 1fr; gap: 3rem; }
+      body { cursor: auto; }
+      .cursor, .cursor-ring { display: none; }
+
+      nav { padding: 1.2rem 1.5rem; }
+      .nav-logo { font-size: 1.1rem; }
+      .nav-links { gap: 1.2rem; }
+      .nav-links a { font-size: 0.6rem; }
+
+      .hero { grid-template-columns: 1fr; min-height: auto; }
+      .hero-left {
+        padding: 7rem 1.5rem 4rem;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+      .hero-right {
+        display: block;
+        padding: 2rem 1.5rem;
+      }
+      .deco-circle { display: none; }
+      .hero-stats {
+        grid-template-columns: 1fr 1fr;
+      }
+      .stat { padding: 1.2rem; }
+      .stat-num { font-size: 1.8rem; }
+
+      section { padding: 4rem 1.5rem; }
+
+      .about-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+      .about-title { font-size: 2rem; }
+
       .works-grid { grid-template-columns: 1fr; }
-      nav { padding: 1.5rem 2rem; }
-      footer { padding: 2rem; flex-direction: column; gap: 1rem; text-align: center; }
+      .work-card { padding: 2rem 1.5rem; }
+
+      .contact-title { font-size: 2.5rem; }
+      .contact-email { font-size: 1rem; }
+
+      footer {
+        padding: 1.5rem;
+        flex-direction: column;
+        gap: 0.5rem;
+        text-align: center;
+      }
+
+      h1 { font-size: 3rem; }
+    }
+
+    @media (max-width: 400px) {
+      h1 { font-size: 2.5rem; }
+      .nav-links { gap: 0.8rem; }
+      .stat-num { font-size: 1.5rem; }
     }
   </style>
 </head>
@@ -601,7 +643,7 @@
         Buchungen, Fragen, Ideen – oder einfach hallo sagen.<br>
         Ich bin (meistens) erreichbar.
       </p>
-      <a href="mailto:deine@email.de" class="contact-email reveal">deine@email.de</a>
+      <a href="/cdn-cgi/l/email-protection#dbbfbeb2b5be9bbeb6bab2b7f5bfbe" class="contact-email reveal"><span class="__cf_email__" data-cfemail="5f3b3a36313a1f3a323e3633713b3a">[email&#160;protected]</span></a>
     </div>
   </section>
 
@@ -611,7 +653,7 @@
     <span>Makeup · Tattoo · Chaos</span>
   </footer>
 
-  <script>
+  <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
     // Custom cursor
     const cursor = document.getElementById('cursor');
     const ring = document.getElementById('cursorRing');
@@ -639,13 +681,4 @@
 
     // Scroll reveal
     const reveals = document.querySelectorAll('.reveal');
-    const observer = new IntersectionObserver(entries => {
-      entries.forEach(e => {
-        if (e.isIntersecting) { e.target.classList.add('visible'); }
-      });
-    }, { threshold: 0.1 });
-    reveals.forEach(el => observer.observe(el));
-  </script>
-
-</body>
-</html>
+    const observer = new IntersectionObs
