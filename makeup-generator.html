@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Look Generator – Celine</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #06050f;
+      --surface: #0d0b1a;
+      --surface2: #131025;
+      --border: #1c1730;
+      --text: #ede8f5;
+      --muted: #5c5475;
+      --accent: #a78bfa;
+      --accent2: #7c3aed;
+      --selected-bg: rgba(167,139,250,0.12);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-weight: 300;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: -20%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 900px; height: 500px;
+      background: radial-gradient(ellipse, rgba(124,58,237,0.1) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Noise */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 1000;
+      opacity: 0.3;
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 4rem 2rem 6rem;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 4rem;
+    }
+
+    .header-tag {
+      font-size: 0.6rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1.2rem;
+      display: block;
+    }
+
+    .header h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      font-weight: 300;
+      line-height: 1.1;
+      margin-bottom: 1rem;
+    }
+    .header h1 em { font-style: italic; color: var(--accent); }
+
+    .header p {
+      font-size: 0.72rem;
+      color: var(--muted);
+      line-height: 1.9;
+    }
+
+    /* Progress */
+    .progress-bar {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      margin-bottom: 3.5rem;
+    }
+    .progress-dot {
+      width: 24px; height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      transition: background 0.4s;
+    }
+    .progress-dot.active { background: var(--accent); }
+    .progress-dot.done { background: var(--accent2); }
+
+    /* Steps */
+    .step { display: none; animation: fadeUp 0.5s forwards; }
+    .step.active { display: block; }
+
+    .step-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+    .step-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .step-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-weight: 300;
+      margin-bottom: 2.5rem;
+      line-height: 1.2;
+    }
+    .step-title em { font-style: italic; color: var(--accent); }
+
+    /* Option grid */
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      margin-bottom: 2.5rem;
+    }
+
+    .option-card {
+      background: var(--bg);
+      padding: 2rem 1.8rem;
+      cursor: pointer;
+      transition: background 0.3s;
+      position: relative;
+      overflow: hidden;
+      user-select: none;
+    }
+    .option-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0;
+      width: 100%; height: 2px;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.35s;
+    }
+    .option-card:hover { background: var(--surface); }
+    .option-card:hover::after { transform: scaleX(1); }
+    .option-card.selected {
+      background: var(--selected-bg);
+      border-color: var(--accent);
+    }
+    .option-card.selected::after { transform: scaleX(1); }
+
+    .option-emoji {
+      font-size: 1.8rem;
+      margin-bottom: 1rem;
+      display: block;
+      filter: drop-shadow(0 0 8px rgba(167,139,250,0.4));
+    }
+    .option-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.2rem;
+      font-weight: 400;
+      margin-bottom: 0.4rem;
+    }
+    .option-desc {
+      font-size: 0.62rem;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+    .option-check {
+      position: absolute;
+      top: 1rem; right: 1rem;
+      width: 18px; height: 18px;
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.6rem;
+      transition: all 0.3s;
+    }
+    .option-card.selected .option-check {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--bg);
+    }
+
+    /* Navigation buttons */
+    .nav-buttons {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .btn {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      padding: 1rem 2.5rem;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .btn:hover { border-color: var(--muted); color: var(--text); }
+    .btn.primary {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .btn.primary:hover {
+      background: var(--accent);
+      color: var(--bg);
+    }
+    .btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    /* Result */
+    .result {
+      display: none;
+      animation: fadeUp 0.6s forwards;
+    }
+    .result.active { display: block; }
+
+    .result-header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+    .result-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(2rem, 5vw, 4rem);
+      font-weight: 300;
+      line-height: 1.1;
+      margin-bottom: 0.8rem;
+    }
+    .result-title em { font-style: italic; color: var(--accent); }
+    .result-sub {
+      font-size: 0.68rem;
+      color: var(--muted);
+    }
+
+    .result-card {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      margin-bottom: 2rem;
+      overflow: hidden;
+    }
+
+    .result-look-name {
+      padding: 2.5rem 3rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+    .result-look-emoji {
+      font-size: 3rem;
+      filter: drop-shadow(0 0 20px rgba(167,139,250,0.6));
+    }
+    .result-look-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2.2rem;
+      font-weight: 300;
+      font-style: italic;
+      color: var(--accent);
+    }
+    .result-look-vibe {
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      margin-top: 0.3rem;
+    }
+
+    .result-details {
+      padding: 2.5rem 3rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 2rem;
+    }
+
+    .result-detail-item {}
+    .result-detail-label {
+      font-size: 0.58rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.6rem;
+      display: block;
+    }
+    .result-detail-value {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.1rem;
+      font-weight: 400;
+    }
+
+    .result-products {
+      padding: 2rem 3rem;
+      border-top: 1px solid var(--border);
+    }
+    .products-label {
+      font-size: 0.58rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1.2rem;
+      display: block;
+    }
+    .products-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+    .product-tag {
+      font-size: 0.62rem;
+      letter-spacing: 0.08em;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.4rem 0.9rem;
+      transition: border-color 0.3s;
+    }
+    .product-tag:hover { border-color: var(--accent); }
+
+    .result-tip {
+      padding: 2rem 3rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.72rem;
+      color: var(--muted);
+      line-height: 1.9;
+      font-style: italic;
+    }
+    .result-tip strong { color: var(--accent); font-style: normal; font-weight: 300; }
+
+    .result-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      margin-top: 2.5rem;
+      flex-wrap: wrap;
+    }
+
+    /* Animations */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 600px) {
+      .page { padding: 2.5rem 1.2rem 4rem; }
+      .options-grid { grid-template-columns: 1fr 1fr; }
+      .result-details { grid-template-columns: 1fr; gap: 1.2rem; }
+      .result-look-name { padding: 1.5rem; }
+      .result-details, .result-products, .result-tip { padding: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="header">
+    <span class="header-tag">✦ von Celine ✦</span>
+    <h1>Dein nächster<br><em>Look.</em></h1>
+    <p>Wähle deinen Stil – ich sag dir was du brauchst.</p>
+  </div>
+
+  <div class="progress-bar" id="progressBar">
+    <div class="progress-dot active" id="dot0"></div>
+    <div class="progress-dot" id="dot1"></div>
+    <div class="progress-dot" id="dot2"></div>
+  </div>
+
+  <!-- Step 1: Augen -->
+  <div class="step active" id="step0">
+    <p class="step-label">Schritt 1 von 3</p>
+    <h2 class="step-title">Wie sollen<br>deine <em>Augen</em> sprechen?</h2>
+    <div class="options-grid">
+      <div class="option-card" data-step="0" data-value="smokey">
+        <div class="option-check">✓</div>
+        <span class="option-emoji">🖤</span>
+        <div class="option-name">Smokey</div>
+        <div class="option-desc">Verrauchert, intensiv, dramatisch</div>
+      </div>
+      <div class="option-card" data-step="0" data-value="natural">
+        <div class="option-check">✓</div>
+        <span class="option-emoji">🤎</span>
+        <div class="option-name">Natural</div>
+        <div class="option-desc">Weich, warm, alltäglich</div>
+      </div>
+      <div class="option-card" data-step="0" data-value="graphic">
+        <div class="option-check">✓</div>
+        <span class="option-emoji">🔷</span>
+        <div class="option-name">Graphic</div>
+        <div class="option-desc">Linien, Formen, Avantgarde</div>
+      </div>
+      <div class="option-card" data-step="0" data-value="glam">
+        <div class="option-check">✓</div>
+        <span class="option-emoji">✨</span>
+        <div class="option-name">Glam</div>
+        <div class="option-desc">Glitzer, Folie, Statement</div>
+      </div>
+      <div class="option-card" data-step="0" data-value="editorial">
+        <div class="option-check">✓</div>
+        <span class="option-emoji">🎨</span>
+        <div class="option-name">Editorial</div>
+        <div class="option-desc">Kunstvoll, mutig, unerwartet</div>
+      </div>
+      <div class="option-card" data-step="0" data-value="clean">
+        <div class="option-check">✓</div>
+        <span class="option-emoji">🤍</span>
+        <div class="option-name">Clean Girl</div>
+        <div class="option-desc">Frisch, minimal, gepflegt</div>
+      </div>
+    </div>
+    <div class="nav-buttons">
+      <span></span>
+      <button class="btn primary" id="next0" disabled onclick="nextStep(0)">Weiter →</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Lippen -->
+  <div class="step" id="step1">
+    <p class="step-label">Schritt 2 von 3</p>
+    <h2 class="step-title">Was machen<br>deine <em>Lippen?</em></h2>
+    <div class="options-grid">
+      <div class="option-card" data-step="1" data-value="bold">
+        <div class="option-check">✓</div>
+        <span class="option-emoji">💋</span>
+        <div class="option-name">Bold</div>
+        <div class="option-desc">Rot, Burgund, Statement-Farbe</div>
+      </div>
+      <div class="option-card" data-step="1" data-value="nude">
+        <div class="option-check">✓</div>
+        <span class="option-emoji">🫦</span>
+        <div class="option-name">Nude</div>
+        <div class="option-desc">Dein natürlicher Ton, nur besser</div>
+      </div>
+      <div class="option-card" data-step="1" data-value="glossy">
+        <div class="option-check">✓</div>
+        <span class="option-emoji">💧</span>
+        <div class="option-name">Glossy</div>
+        <div class="option-desc">High-shine, juicy, voll</div>
+      </div>
+      <div class="option-card" data-step="1" data-value="matte-lip">
+        <div class="option-check">✓</div>
+        <span class="option-emoji">🍷</span>
+        <div class="option-name">Matte Lip</div>
+        <div class="option-desc">Samtig, tief, langanhaltend</div>
+      </div>
+      <div class="option-card" data-step="1" data-value="ombre">
+        <div class="option-check">✓</div>
+        <span class="option-emoji">🌅</span>
+        <div class="option-name">Ombré</div>
+        <div class="option-desc">Gradient, weich, modern</div>
+      </div>
+      <div class="option-card" data-step="1" data-value="stained">
+        <div class="option-check">✓</div>
+        <span class="option-emoji">🌸</span>
+        <div class="option-name">Stained</div>
+        <div class="option-desc">Natürlich gefärbt, effortless</div>
+      </div>
+    </div>
+    <div class="nav-buttons">
+      <button class="btn" onclick="prevStep(1)">← Zurück</button>
+      <button class="btn primary" id="next1" disabled onclick="nextStep(1)">Weiter →</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Skin -->
+  <div class="step" id="step2">
+    <p class="step-label">Schritt 3 von 3</p>
+    <h2 class="step-title">Wie soll<br>deine <em>Haut</em> strahlen?</h2>
+    <div class="options-grid">
+      <div class="option-card" data-step="2" data-value="matte">
+        <div class="option-check">✓</div>
+        <span class="option-emoji">🪨</span>
+        <div class="option-name">Matte</div>
+        <div class="option-desc">Porenfrei, puder-weich, clean</div>
+      </div>
+      <div class="option-card" data-step="2" data-value="dewy">
+        <div class="option-check">✓</div>
+        <span class="option-emoji">💦</span>
+        <div class="option-name">Dewy</div>
+        <div class="option-desc">Feucht, frisch, lebendig</div>
+      </div>
+      <div class="option-card" data-step="2" data-value="glowy">
+        <div class="option-check">✓</div>
+        <span class="option-emoji">🌟</span>
+        <div class="option-name">Glowy</div>
+        <div class="option-desc">Lit-from-within, strahlend</div>
+      </div>
+      <div class="option-card" data-step="2" data-value="satin">
+        <div class="option-check">✓</div>
+        <span class="option-emoji">🪞</span>
+        <div class="option-name">Satin</div>
+        <div class="option-desc">Zwischen matt und glow, perfekt</div>
+      </div>
+    </div>
+    <div class="nav-buttons">
+      <button class="btn" onclick="prevStep(2)">← Zurück</button>
+      <button class="btn primary" id="next2" disabled onclick="generateResult()">Look generieren ✦</button>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div class="result" id="result">
+    <div class="result-header">
+      <h2 class="result-title">Dein<br><em id="resultName">Look</em></h2>
+      <p class="result-sub" id="resultVibe"></p>
+    </div>
+
+    <div class="result-card">
+      <div class="result-look-name">
+        <span class="result-look-emoji" id="resultEmoji">✨</span>
+        <div>
+          <div class="result-look-title" id="resultTitle">—</div>
+          <div class="result-look-vibe" id="resultVibeShort">—</div>
+        </div>
+      </div>
+      <div class="result-details">
+        <div class="result-detail-item">
+          <span class="result-detail-label">Augen</span>
+          <span class="result-detail-value" id="detailAugen">—</span>
+        </div>
+        <div class="result-detail-item">
+          <span class="result-detail-label">Lippen</span>
+          <span class="result-detail-value" id="detailLippen">—</span>
+        </div>
+        <div class="result-detail-item">
+          <span class="result-detail-label">Skin</span>
+          <span class="result-detail-value" id="detailSkin">—</span>
+        </div>
+      </div>
+      <div class="result-products">
+        <span class="products-label">Was du brauchst</span>
+        <div class="products-list" id="productsList"></div>
+      </div>
+      <div class="result-tip" id="resultTip"></div>
+    </div>
+
+    <div class="result-actions">
+      <button class="btn" onclick="resetAll()">← Nochmal</button>
+      <button class="btn primary" onclick="copyResult()">Look kopieren ✦</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const selections = { 0: null, 1: null, 2: null };
+
+  // Look data
+  const looks = {
+    smokey: {
+      bold: {
+        matte:    { name: "Midnight Power", emoji: "🖤", vibe: "Brutal, stark, unvergesslich", tip: "<strong>Pro-Tipp:</strong> Smokey Eye und Bold Lip – normalerweise ein No-Go. Aber mit mattem Finish und einem sauberen Liner wird es zu einem echten Statement-Look. Halte Concealer bereit für saubere Kanten." },
+        dewy:     { name: "Dark Romance", emoji: "🌹", vibe: "Leidenschaftlich, intensiv, sinnlich", tip: "<strong>Pro-Tipp:</strong> Dewy Skin balanciert den schweren Smokey und die Bold Lip perfekt aus. Nutze einen feuchtigkeitsspendenden Primer als Base." },
+        glowy:    { name: "Obsidian Star", emoji: "⭐", vibe: "Glamourös, dunkel, strahlend", tip: "<strong>Pro-Tipp:</strong> Gib einen Hauch Highlighter auf die Nasenspitze und den Cupid's Bow – das macht den Unterschied zwischen gut und wow." },
+        satin:    { name: "Black Velvet", emoji: "🎭", vibe: "Elegant, raffiniert, geheimnisvoll", tip: "<strong>Pro-Tipp:</strong> Satin Finish ist das perfekte Gleichgewicht für diesen Look. Nicht zu viel pudern – lass die Haut ein bisschen atmen." },
+      },
+      nude: {
+        matte:    { name: "Noir Editorial", emoji: "🎞️", vibe: "Modern, fokussiert, clean-dark", tip: "<strong>Pro-Tipp:</strong> Nude Lip bei Smokey Eye – ein Klassiker aus gutem Grund. Wähle einen Nude der einen Hauch rosé hat, kein zu warmes Braun." },
+        dewy:     { name: "Soft Smoke", emoji: "🌫️", vibe: "Verträumt, weich, melancholisch", tip: "<strong>Pro-Tipp:</strong> Blende den Smokey weit aus – fast bis zur Schläfe. Das macht ihn softer und moderner." },
+        glowy:    { name: "Velvet Noir", emoji: "🪷", vibe: "Sophisticated, geheimnisvoll, glühend", tip: "<strong>Pro-Tipp:</strong> Ein bisschen Bronzer auf den Wangenknochen und der Look geht von Beauty zu Editorial." },
+        satin:    { name: "Smoke & Skin", emoji: "🤍", vibe: "Minimalistisch, aber mit Tiefe", tip: "<strong>Pro-Tipp:</strong> Verwende denselben dunklen Lidschatten als Liner – das sieht weniger hart aus als echter Kajal." },
+      },
+      glossy: {
+        matte:    { name: "Paradox Queen", emoji: "💎", vibe: "Kontrastreich, mutig, spielerisch", tip: "<strong>Pro-Tipp:</strong> Matte Haut mit Glossy Lippen und Smokey Eye ist ein bewusster Kontrast – genau das macht ihn spannend." },
+        dewy:     { name: "Wet Dream Look", emoji: "💧", vibe: "Feucht, sinnlich, trendy", tip: "<strong>Pro-Tipp:</strong> Alles glänzt – Haut, Lippen. Nur die Augen sind dunkel. Das ist der Wet-Look, perfekt für Fotos." },
+        glowy:    { name: "Glass Witch", emoji: "🔮", vibe: "Mystisch, glänzend, kraftvoll", tip: "<strong>Pro-Tipp:</strong> Lege Gloss über einen getrockneten Lipliner – so hält er länger und der Rand bleibt scharf." },
+        satin:    { name: "Dark Angel", emoji: "🖤", vibe: "Elegant, gefährlich schön", tip: "<strong>Pro-Tipp:</strong> Dieser Look braucht saubere Ausführung. Nimm dir Zeit beim Smokey – verwischte Kanten sind hier nicht gewünscht." },
+      },
+      "matte-lip": {
+        matte:    { name: "Full Matte Noir", emoji: "⬛", vibe: "Maximal matt, maximal Drama", tip: "<strong>Pro-Tipp:</strong> Setze einen Hauch Highlighter auf den inneren Augenwinkel – das ist das einzige Glänzen das dieser Look braucht." },
+        dewy:     { name: "Vamp Skin", emoji: "🧛", vibe: "Vampirhaft, intensiv, elegant", tip: "<strong>Pro-Tipp:</strong> Dewy Skin und alles andere matt – ein moderner Vampir-Look. Sehr editorial." },
+        glowy:    { name: "Gothic Glow", emoji: "🕯️", vibe: "Dunkel und leuchtend zugleich", tip: "<strong>Pro-Tipp:</strong> Nutze einen pinkfarbenen oder lila Lippenstift statt klassischem Rot – moderner und unerwarteter." },
+        satin:    { name: "Darkwave", emoji: "🌊", vibe: "Brooding, chic, zeitlos", tip: "<strong>Pro-Tipp:</strong> Dieser Look ist eine Investition in Zeit. Bereite die Haut gut vor – Feuchtigkeitspflege, dann Primer." },
+      },
+      ombre: {
+        matte:    { name: "Shadow & Bloom", emoji: "🌑", vibe: "Künstlerisch, dunkel-romantisch", tip: "<strong>Pro-Tipp:</strong> Für Ombré Lippen: dunkle Farbe außen, hellere Farbe innen mit dem Finger vermischen." },
+        dewy:     { name: "Night Bloom", emoji: "🌙", vibe: "Verführerisch, weich, dreidimensional", tip: "<strong>Pro-Tipp:</strong> Nutze einen Lipliner als äußere Farbe und einen helleren Lippenstift für die Mitte." },
+        glowy:    { name: "Twilight", emoji: "🌆", vibe: "Verträumt, schimmernd, einzigartig", tip: "<strong>Pro-Tipp:</strong> Ein bisschen Lipgloss nur in der Mitte der Unterlippe macht das Ombré noch dreidimensionaler." },
+        satin:    { name: "Dusk Look", emoji: "🌇", vibe: "Warm und dunkel, elegant", tip: "<strong>Pro-Tipp:</strong> Verwende Töne aus derselben Farbfamilie für das Ombré – so wirkt es harmonisch statt billig." },
+      },
+      stained: {
+        matte:    { name: "Effortless Noir", emoji: "🫶", vibe: "Entspannt, aber beeindruckend", tip: "<strong>Pro-Tipp:</strong> Stained Lips bei Smokey Eye ist mutig – aber ein Lippentint hält gut und sieht nie übertrieben aus." },
+        dewy:     { name: "Undone Beauty", emoji: "🌿", vibe: "Natürlich-dunkel, modern", tip: "<strong>Pro-Tipp:</strong> Lass einen Hauch des Stains über die Lippenlinie gehen – das sieht gewollt-ungewollt aus." },
+        glowy:    { name: "Berry Glow", emoji: "🫐", vibe: "Frisch, beerig, mühelos schön", tip: "<strong>Pro-Tipp:</strong> Ein Beeren-Tint mit Glossy-Finish obendrauf ist die perfekte Kombination für diesen Look." },
+        satin:    { name: "Casual Dark", emoji: "🍂", vibe: "Lässig, dunkel, anziehend", tip: "<strong>Pro-Tipp:</strong> Tupfe den Tint mit dem Finger auf – das gibt einen natürlicheren Farbverlauf als ein Pinsel." },
+      },
+    },
+    natural: {
+      bold: {
+        matte:    { name: "Power Nude", emoji: "💪", vibe: "Selbstbewusst, clean, modern", tip: "<strong>Pro-Tipp:</strong> Natürliche Augen + Bold Lip ist der bekannteste Kontrast der Makeup-Welt. Keep the eyes clean and let the lips do the talking." },
+        dewy:     { name: "Spring Statement", emoji: "🌸", vibe: "Lebendig, frisch, farbenfroh", tip: "<strong>Pro-Tipp:</strong> Ein Coral oder Orange-Red passt perfekt zu dewy Skin und natürlichen Augen – sehr editorial." },
+        glowy:    { name: "French Girl", emoji: "🥐", vibe: "Scheinbar mühelos, trotzdem perfekt", tip: "<strong>Pro-Tipp:</strong> Der klassische Pariser Look – minimal Augen, Statement Lippenstift, strahlende Haut." },
+        satin:    { name: "Classic Beauty", emoji: "🌷", vibe: "Timeless, elegant, wunderschön", tip: "<strong>Pro-Tipp:</strong> Nutze einen Lipliner eine Nuance dunkler als deinen Lippenstift – das gibt mehr Definition." },
+      },
+      nude: {
+        matte:    { name: "Bare Minimum", emoji: "🫶", vibe: "Natürlich aber gepflegt", tip: "<strong>Pro-Tipp:</strong> Investiere in gute Haut-Vorbereitung. Dieser Look lebt von echter Hautqualität." },
+        dewy:     { name: "Glass Skin", emoji: "💧", vibe: "Pures Strahlen, minimaler Aufwand", tip: "<strong>Pro-Tipp:</strong> Verwende feuchtigkeitsreichen Tinted Moisturizer statt Foundation für maximale Natürlichkeit." },
+        glowy:    { name: "Golden Hour", emoji: "✨", vibe: "Warm, strahlend, effortless", tip: "<strong>Pro-Tipp:</strong> Ein cremiger Highlighter auf Wangenknochen, Nasenrücken und Cupid's Bow reicht für diesen Look." },
+        satin:    { name: "No-Makeup Makeup", emoji: "🌿", vibe: "Gepflegt ohne sichtbaren Aufwand", tip: "<strong>Pro-Tipp:</strong> Concealer nur dort wo du ihn wirklich brauchst – so bleibt die Haut texturiert und lebendig." },
+      },
+      glossy: {
+        matte:    { name: "Juicy Minimal", emoji: "🍑", vibe: "Frisch, verspielt, jung", tip: "<strong>Pro-Tipp:</strong> Matte Foundation mit Gloss macht die Lippen zum einzigen Fokus des Looks." },
+        dewy:     { name: "Peach Bubble", emoji: "🧃", vibe: "Süß, frisch, sommerlich", tip: "<strong>Pro-Tipp:</strong> Ein Pfirsich-farbener Gloss über einem passenden Lippenstift hält länger als Gloss allein." },
+        glowy:    { name: "All That Shines", emoji: "⭐", vibe: "Von Kopf bis Fuß strahlend", tip: "<strong>Pro-Tipp:</strong> Nutze denselben Highlighter auf Wangenknochen UND als Gloss-Ersatz auf den Lippen für maximale Kohärenz." },
+        satin:    { name: "Soft Gloss", emoji: "🌙", vibe: "Sanft, gepflegt, anziehend", tip: "<strong>Pro-Tipp:</strong> Trage Gloss nur auf die Mitte der Lippen – das wirkt voller und natürlicher als überall." },
+      },
+      "matte-lip": {
+        matte:    { name: "Flat Velvet", emoji: "🪨", vibe: "Ultra-clean, minimalistisch", tip: "<strong>Pro-Tipp:</strong> Dieser Look braucht makellose Haut als Base. Investiere 10 Minuten in die Skincare-Routine davor." },
+        dewy:     { name: "Skin & Velvet", emoji: "🫧", vibe: "Kontrastreich, modern, frisch", tip: "<strong>Pro-Tipp:</strong> Dewy Skin + matte Lippe ist ein bewusster Kontrast der sehr chic wirkt." },
+        glowy:    { name: "Sunkissed Matte", emoji: "☀️", vibe: "Warm, sonnig, gepflegt", tip: "<strong>Pro-Tipp:</strong> Bronzer auf Stirn, Nase und Wangen und ein warmer Matte-Lippenstift – pure Sommer-Energie." },
+        satin:    { name: "Soft Power", emoji: "🌾", vibe: "Feminin, selbstbewusst, ruhig", tip: "<strong>Pro-Tipp:</strong> Ein warmer Rosé-Matten-Lippenstift ist der vielseitigste Kauf den du machen kannst." },
+      },
+      ombre: {
+        matte:    { name: "Gradient Girl", emoji: "🌈", vibe: "Verspielt, kreativ, modern", tip: "<strong>Pro-Tipp:</strong> Für natürliche Looks – nutze zwei Töne aus derselben Farbfamilie, nicht zu weit auseinander." },
+        dewy:     { name: "Bloom & Fade", emoji: "🌺", vibe: "Romantisch, weich, dreidimensional", tip: "<strong>Pro-Tipp:</strong> Cremige Texturen lassen sich am besten für Ombré verwenden – Lipliner für außen, Stift für innen." },
+        glowy:    { name: "Sunrise Lips", emoji: "🌄", vibe: "Warm, strahlend, einzigartig", tip: "<strong>Pro-Tipp:</strong> Orange außen, Rosa innen – klassisches Sunrise-Ombré das immer beeindruckt." },
+        satin:    { name: "Petal Look", emoji: "🌷", vibe: "Zart, feminin, kunstfertig", tip: "<strong>Pro-Tipp:</strong> Verwische die Grenze zwischen den Ombré-Farben mit dem kleinen Finger – niemals mit einem steifen Pinsel." },
+      },
+      stained: {
+        matte:    { name: "Just Woke Up", emoji: "🌅", vibe: "Frisch, natürlich, mühelos", tip: "<strong>Pro-Tipp:</strong> Lippentint mit dem Finger auftupfen und mit einem Tissue leicht abtupfen für den perfekten Stained-Effekt." },
+        dewy:     { name: "Morning Glow", emoji: "☕", vibe: "Warm, lebendig, entspannt", tip: "<strong>Pro-Tipp:</strong> Tint auf Lippen UND leicht auf die Wangen – ein Produkt für zwei Stellen." },
+        glowy:    { name: "Berry Skin", emoji: "🫐", vibe: "Fruchtig, frisch, modern", tip: "<strong>Pro-Tipp:</strong> Lippentints halten viel länger wenn die Lippen vorher gut gepflegt sind – Lippenpflege ist kein Extra, sie ist Voraussetzung." },
+        satin:    { name: "Effortless Charm", emoji: "🍀", vibe: "Natürlich charmant, gepflegt", tip: "<strong>Pro-Tipp:</strong> Dieser Look sieht aus wie kein Makeup – und braucht trotzdem 20 Minuten. Das ist die Schönheit daran." },
+      },
+    },
+    graphic: {
+      bold: {
+        matte:    { name: "Art Attack", emoji: "🎨", vibe: "Kompromisslos, künstlerisch, wow", tip: "<strong>Pro-Tipp:</strong> Graphic Liner + Bold Lip braucht eine ruhige Hand. Übe die Liner-Form auf Papier bevor du anfängst." },
+        dewy:     { name: "Living Art", emoji: "🖌️", vibe: "Editorial, frisch, lebendig", tip: "<strong>Pro-Tipp:</strong> Dewy Skin macht Graphic Liner weniger hart – ein schöner Kontrast zu den scharfen Linien." },
+        glowy:    { name: "Neon Museum", emoji: "🏛️", vibe: "Avantgarde, strahlend, unvergesslich", tip: "<strong>Pro-Tipp:</strong> Verwende einen wasserfesten Eyeliner für Graphic Designs – kein Verhandlungsspielraum." },
+        satin:    { name: "Sharp Beauty", emoji: "📐", vibe: "Präzise, elegant, modern", tip: "<strong>Pro-Tipp:</strong> Klebeband als Schablone für perfekte gerade Linien – ein Profi-Trick der wirklich funktioniert." },
+      },
+      nude: {
+        matte:    { name: "Architect", emoji: "📏", vibe: "Minimalistisch, strukturiert, chic", tip: "<strong>Pro-Tipp:</strong> Schwarzer Graphic Liner auf nackter Haut mit Nude Lip – der stärkste minimale Look den es gibt." },
+        dewy:     { name: "Line Study", emoji: "✏️", vibe: "Künstlerisch, ruhig, fokussiert", tip: "<strong>Pro-Tipp:</strong> Lass den Liner absichtlich etwas über die normale Linie hinausgehen – das ist der Punkt bei Graphic Liner." },
+        glowy:    { name: "Floating Liner", emoji: "🪄", vibe: "Modern, futuristisch, strahlend", tip: "<strong>Pro-Tipp:</strong> Ein Floating Liner (Linie oberhalb der Lidfalte) ist das Trendieste was du gerade machen kannst." },
+        satin:    { name: "Studio Look", emoji: "🎬", vibe: "Professionell, modern, fokussiert", tip: "<strong>Pro-Tipp:</strong> Weniger ist mehr bei Graphic Liner – eine einzige saubere Linie schlägt fünf verwischte." },
+      },
+      glossy: {
+        matte:    { name: "Graphic Gloss", emoji: "💎", vibe: "Mutig, kontrastreich, spielerisch", tip: "<strong>Pro-Tipp:</strong> Scharfe Linien + Glossy Lippe = visuell sehr spannend. Lass nichts anderes konkurrieren." },
+        dewy:     { name: "Wet Lines", emoji: "💦", vibe: "Alles glänzt außer dem Liner", tip: "<strong>Pro-Tipp:</strong> Gloss und dewy Skin harmonieren perfekt – nur der Liner schafft den nötigen Kontrast." },
+        glowy:    { name: "Diamond Edit", emoji: "💠", vibe: "Maximal, strahlend, editorial", tip: "<strong>Pro-Tipp:</strong> Setze einen weißen oder champagne Liner ans untere Wasserlinie – macht die Augen riesig." },
+        satin:    { name: "Clean Lines", emoji: "🔲", vibe: "Klar, modern, ausgewogen", tip: "<strong>Pro-Tipp:</strong> Satin Skin ist die perfekte Mitte – du glänzt, aber kontrolliert." },
+      },
+      "matte-lip": {
+        matte:    { name: "Zero Shine", emoji: "⬜", vibe: "Alles matt, alles scharf", tip: "<strong>Pro-Tipp:</strong> Setting Spray nach dem Look hält alles an seinem Platz und gibt ein einheitliches Finish." },
+        dewy:     { name: "Mod Girl", emoji: "🔵", vibe: "60er Retro, frisch interpretiert", tip: "<strong>Pro-Tipp:</strong> Graphic Liner + Matte Lip ist ein Mod-Look – inspiriert von Twiggy, aber modern." },
+        glowy:    { name: "Contour Lines", emoji: "🌀", vibe: "Dreidimensional, strukturiert, bold", tip: "<strong>Pro-Tipp:</strong> Nutze denselben dunklen Ton des Liners als Shading unter dem Wangenknochen für Kohärenz." },
+        satin:    { name: "Blueprint", emoji: "📋", vibe: "Technisch, präzise, beeindruckend", tip: "<strong>Pro-Tipp:</strong> Graphic Liner braucht absolut saubere, gewaschene Haut als Canvas – kein Öl, kein Nichts." },
+      },
+      ombre: {
+        matte:    { name: "Gradient Art", emoji: "🎭", vibe: "Experimentell, kunstvoll, einzigartig", tip: "<strong>Pro-Tipp:</strong> Graphic Liner und Ombré Lippen – beide sind kompliziert. Übe beide separat bevor du sie kombinierst." },
+        dewy:     { name: "Painted Lady", emoji: "🦋", vibe: "Lebendig, feminin, kunstvoll", tip: "<strong>Pro-Tipp:</strong> Lass den Graphic Liner und das Lippenfarbgradient im selben Ton bleiben für Harmonie." },
+        glowy:    { name: "Aurora Look", emoji: "🌌", vibe: "Magisch, vielschichtig, spektakulär", tip: "<strong>Pro-Tipp:</strong> Für diesen komplexen Look: erst Haut, dann Lippen, dann Graphic Liner zuletzt – so kannst du noch alles korrigieren." },
+        satin:    { name: "Canvas", emoji: "🖼️", vibe: "Du bist das Kunstwerk", tip: "<strong>Pro-Tipp:</strong> Dieser Look ist für Mutige. Lass dich nicht einschüchtern – üben macht perfekt." },
+      },
+      stained: {
+        matte:    { name: "Ink & Skin", emoji: "🖊️", vibe: "Roh, künstlerisch, modern", tip: "<strong>Pro-Tipp:</strong> Graphic Liner + Stained Lips ist die minimalistischste Version dieses Looks – und trotzdem ein Statement." },
+        dewy:     { name: "Fresh Stroke", emoji: "🌊", vibe: "Frisch, organisch, lebendig", tip: "<strong>Pro-Tipp:</strong> Nutze denselben Lippentint als Wangenfarbe – perfekter Monochrom-Look." },
+        glowy:    { name: "Berries & Lines", emoji: "🫐", vibe: "Verspielt, strahlend, kreativ", tip: "<strong>Pro-Tipp:</strong> Ein dunkler Beeren-Tint ergänzt schwarzen Graphic Liner perfekt – der Kontrast ist alles." },
+        satin:    { name: "Sketch", emoji: "✏️", vibe: "Skizzenhaft, unfertig-schön", tip: "<strong>Pro-Tipp:</strong> Lass die Linien absichtlich nicht perfekt – Graphic Liner muss nicht steril sein." },
+      },
+    },
+    glam: {
+      bold: {
+        matte:    { name: "Full Glam Queen", emoji: "👑", vibe: "Maximale Power, maximale Wirkung", tip: "<strong>Pro-Tipp:</strong> Glitter + Bold Lip + Matte Skin – das ist der Look für große Auftritte. Weniger ist hier definitiv nicht mehr." },
+        dewy:     { name: "Red Carpet", emoji: "🏆", vibe: "Filmreif, glamourös, strahlend", tip: "<strong>Pro-Tipp:</strong> Für Red-Carpet-Feeling: feuchtigkeitsreicher Primer, Luminous Foundation, Glitter-Lid." },
+        glowy:    { name: "Superstar", emoji: "🌟", vibe: "Alles strahlt, alles leuchtet", tip: "<strong>Pro-Tipp:</strong> Highlighter auf dem Lid statt Glitter für einen subtileren aber noch glamouröseren Effekt." },
+        satin:    { name: "Hollywood Nights", emoji: "🎬", vibe: "Klassischer Glamour, modern interpretiert", tip: "<strong>Pro-Tipp:</strong> Klassischer Glamour funktioniert mit Satin-Finish perfekt – nicht zu matt, nicht zu ölig." },
+      },
+      nude: {
+        matte:    { name: "Understated Glam", emoji: "✨", vibe: "Glamour ohne Lärm", tip: "<strong>Pro-Tipp:</strong> Glitter-Lid mit Nude Lip – alle Aufmerksamkeit geht an die Augen. Genau das soll so sein." },
+        dewy:     { name: "Glitter Storm", emoji: "⛈️", vibe: "Intensiv, strahlend, feminin", tip: "<strong>Pro-Tipp:</strong> Verwende einen Glitter-Primer auf dem Lid bevor du Glitter aufträgst – hält den ganzen Abend." },
+        glowy:    { name: "Constellation", emoji: "🌠", vibe: "Wie Sterne auf der Haut", tip: "<strong>Pro-Tipp:</strong> Verstreue ein bisschen losen Glitzer unter den Augen für einen \"gefallene Sterne\"-Effekt." },
+        satin:    { name: "After Dark", emoji: "🌃", vibe: "Abend, Glanz, Eleganz", tip: "<strong>Pro-Tipp:</strong> Nutze einen Nude Lipliner der deinen Lippen mehr Definition gibt ohne Farbe hinzuzufügen." },
+      },
+      glossy: {
+        matte:    { name: "Disco Ball", emoji: "🪩", vibe: "Tanzen bis morgens früh", tip: "<strong>Pro-Tipp:</strong> Matte Haut ist das perfekte Fundament für maximale Augen und Glossy Lippen – kein Konflikt, nur Kontrast." },
+        dewy:     { name: "Party Mode", emoji: "🎉", vibe: "Ausgelassen, strahlend, bereit", tip: "<strong>Pro-Tipp:</strong> Waterproof Glitter + Gloss sind Pflicht wenn du tanzen gehst. Trust." },
+        glowy:    { name: "Mirror Ball", emoji: "🪞", vibe: "Reflektierend von Kopf bis Fuß", tip: "<strong>Pro-Tipp:</strong> Gloss auf die Augenbrauen für maximalen Shine – das ist ein Trend und er ist real." },
+        satin:    { name: "Night Out", emoji: "🌙", vibe: "Perfekt für jeden Abend", tip: "<strong>Pro-Tipp:</strong> Dieser Look ist dein Standardlook für Ausgehabende. Perfektioniere ihn und du brauchst nichts anderes." },
+      },
+      "matte-lip": {
+        matte:    { name: "Matte Glam", emoji: "🖤", vibe: "Glamour ohne ein Gramm Shine", tip: "<strong>Pro-Tipp:</strong> Glitter auf mattem Grund wirkt noch intensiver. Setze es strategisch ein – nicht überall." },
+        dewy:     { name: "Jewel Tones", emoji: "💎", vibe: "Edel, tief, wertvoll", tip: "<strong>Pro-Tipp:</strong> Grüner oder blauer Glitter bei dewy Haut und mattem Lippenstift – komplett Editorial." },
+        glowy:    { name: "Dark Jewel", emoji: "🔮", vibe: "Mystisch, wertvoll, strahlend", tip: "<strong>Pro-Tipp:</strong> Nutze Glitter in Schmuckfarben – Saphirblau, Smaragdgrün, Rubirot." },
+        satin:    { name: "Glam Rock", emoji: "🎸", vibe: "Roh, glamourös, unvergesslich", tip: "<strong>Pro-Tipp:</strong> Für Glam Rock: Glitter UND ein dunkler Lippenstift. Kein halbes Commitment." },
+      },
+      ombre: {
+        matte:    { name: "Diamond Dusk", emoji: "🌆", vibe: "Dramatisch, vielschichtig, wow", tip: "<strong>Pro-Tipp:</strong> Glitter-Lid und Ombré Lippe sind beide komplex – übe den Ombré separat." },
+        dewy:     { name: "Festival Queen", emoji: "🎪", vibe: "Festival-ready, leuchtend, frei", tip: "<strong>Pro-Tipp:</strong> Für Festivals: wasserfester Glitter-Gel und ein langhaltender Lippenstift als Ombré-Base." },
+        glowy:    { name: "Celestial", emoji: "🌌", vibe: "Wie die Galaxie auf deinem Gesicht", tip: "<strong>Pro-Tipp:</strong> Lila und Rosa Ombré Lippenstift mit Silber-Glitter auf den Augen – absoluter Celestial-Look." },
+        satin:    { name: "Stardust", emoji: "⭐", vibe: "Magisch, feminin, außergewöhnlich", tip: "<strong>Pro-Tipp:</strong> Streue feinen Glitter als Highlight auf die Wangenknochen für einen Stardust-Effekt." },
+      },
+      stained: {
+        matte:    { name: "Glitter & Glow", emoji: "✨", vibe: "Entspannter Glamour", tip: "<strong>Pro-Tipp:</strong> Glitter + Stained Lip ist der Glamour-Look für Faule. Schnell, schön, effektvoll." },
+        dewy:     { name: "Soft Sparkle", emoji: "🌟", vibe: "Dezenter Glamour, maximale Frische", tip: "<strong>Pro-Tipp:</strong> Ein paar Glitter-Punkte an den inneren Augenwinkeln reichen für diesen Look." },
+        glowy:    { name: "Glow Fairy", emoji: "🧚", vibe: "Elfenhaft, strahlend, verspielt", tip: "<strong>Pro-Tipp:</strong> Lippentint auf Lippen und Wangen + Glitter an den Schläfen = Glow Fairy in 5 Minuten." },
+        satin:    { name: "Easy Glam", emoji: "💫", vibe: "Glamour ohne Aufwand", tip: "<strong>Pro-Tipp:</strong> Dieser Look funktioniert morgens um 8 und abends um 22 Uhr gleich gut." },
+      },
+    },
+    editorial: {
+      bold: {
+        matte:    { name: "Runway Ready", emoji: "👗", vibe: "Direkt vom Laufsteg", tip: "<strong>Pro-Tipp:</strong> Editorial Makeup darf weird sein. Wenn du zögerst – überleg ob du noch mutiger werden solltest." },
+        dewy:     { name: "Avant-Garde", emoji: "🎭", vibe: "Experimentell, frisch, avantgardistisch", tip: "<strong>Pro-Tipp:</strong> Nutze ungewöhnliche Farben für den Editorial-Bereich – Gelb, Blau, Orange." },
+        glowy:    { name: "High Fashion", emoji: "👠", vibe: "Couture, strahlend, mutig", tip: "<strong>Pro-Tipp:</strong> Für High Fashion: suche dir ein Editorial-Foto als Inspiration und versuche es nachzubauen." },
+        satin:    { name: "Vogue Moment", emoji: "📸", vibe: "Kamera-fertig, einzigartig", tip: "<strong>Pro-Tipp:</strong> Editorial Looks brauchen gute Beleuchtung um wirklich zu leuchten – natürliches Licht ist dein bester Freund." },
+      },
+      nude: {
+        matte:    { name: "Conceptual", emoji: "🧠", vibe: "Intellektuell, durchdacht, modern", tip: "<strong>Pro-Tipp:</strong> Die Kombination von Editorial und Nude Lip zeigt Selbstbewusstsein – du brauchst keine Farbe." },
+        dewy:     { name: "Art Meets Skin", emoji: "🖼️", vibe: "Hautfarbe als Teil des Kunstwerks", tip: "<strong>Pro-Tipp:</strong> Bodypainting-Techniken auf das Gesicht angewendet – Editorial auf nächstem Level." },
+        glowy:    { name: "Future Primitive", emoji: "🌍", vibe: "Tribal, modern, strahlend", tip: "<strong>Pro-Tipp:</strong> Strukturiere das Editorial-Element geometrisch – Dreiecke, Punkte, Linien." },
+        satin:    { name: "Clean Editorial", emoji: "📐", vibe: "Präzise, modern, beeindruckend", tip: "<strong>Pro-Tipp:</strong> Auch Editorials können clean sein – manchmal ist eine perfekte weiße Linie genug Statement." },
+      },
+      glossy: {
+        matte:    { name: "Glass Art", emoji: "🔮", vibe: "Futuristisch, reflektierend, wow", tip: "<strong>Pro-Tipp:</strong> Glossy Lippe bei Editorial-Augen – beide sind Statements, die zusammen aber funktionieren." },
+        dewy:     { name: "Wet Art", emoji: "💦", vibe: "Organisch, lebendig, feucht", tip: "<strong>Pro-Tipp:</strong> Nutze Glossy Produkte auch auf den Augenlidern für einen Wet-Art-Effekt." },
+        glowy:    { name: "Translucent", emoji: "🫧", vibe: "Durchsichtig-schön, lichtdurchflutet", tip: "<strong>Pro-Tipp:</strong> Klarer Gloss auf den Augenlidern + Lippen + Highlighter = maximales Translucent-Feeling." },
+        satin:    { name: "Bold Study", emoji: "🔬", vibe: "Analytisch-schön, strukturiert", tip: "<strong>Pro-Tipp:</strong> Fotografiere deinen Look immer aus verschiedenen Winkeln – Editorial lebt von Perspektive." },
+      },
+      "matte-lip": {
+        matte:    { name: "Zero Point", emoji: "⚫", vibe: "Minimalistisch bis zur Perfektion", tip: "<strong>Pro-Tipp:</strong> Wenn alles matt ist, entscheidet Form und Placement über alles. Nimm dir Zeit." },
+        dewy:     { name: "Matter of Fact", emoji: "📋", vibe: "Direkt, statement-stark, modern", tip: "<strong>Pro-Tipp:</strong> Nutze eine ungewöhnliche Farbe für den Matte Lip bei diesem Look – kein Rot, kein Nude." },
+        glowy:    { name: "Contradiction", emoji: "☯️", vibe: "Gegensätze, die sich anziehen", tip: "<strong>Pro-Tipp:</strong> Glowy Haut + matte Lippe + Editorial Augen – der Look der alles in Frage stellt." },
+        satin:    { name: "Editor's Choice", emoji: "✅", vibe: "Das Beste aller Welten", tip: "<strong>Pro-Tipp:</strong> Dokumentiere deinen Look Schritt für Schritt – so lernst du was für dich funktioniert." },
+      },
+      ombre: {
+        matte:    { name: "Color Theory", emoji: "🎨", vibe: "Bildung trifft Beauty", tip: "<strong>Pro-Tipp:</strong> Nutze komplementäre Farben für das Ombré und den Editorial-Bereich – das ist echte Farbtheorie." },
+        dewy:     { name: "Spectrum", emoji: "🌈", vibe: "Das volle Farbspektrum", tip: "<strong>Pro-Tipp:</strong> Gradient Lips + ungewöhnliches Editorial-Eye = Spectrum Look. Mutig, aber kohärent." },
+        glowy:    { name: "Prismatic", emoji: "🌈", vibe: "Vielschichtig, schillernd, einzigartig", tip: "<strong>Pro-Tipp:</strong> Nutze Duochrome-Produkte für den Editorial-Bereich – sie schillern und erzählen eine Geschichte." },
+        satin:    { name: "Art Deco", emoji: "🏛️", vibe: "Geometrisch, elegant, monumental", tip: "<strong>Pro-Tipp:</strong> Art Deco als Inspiration: symmetrische Formen, Gold, klare Linien." },
+      },
+      stained: {
+        matte:    { name: "Organic Art", emoji: "🌿", vibe: "Natürlich, trotzdem radikal", tip: "<strong>Pro-Tipp:</strong> Stained Lips passen zu organischen, fließenden Editorial-Formen – kein Platz für harte Kanten hier." },
+        dewy:     { name: "Earth Edit", emoji: "🌍", vibe: "Geerdet, natürlich, kraftvoll", tip: "<strong>Pro-Tipp:</strong> Erdige Töne für alles – Lip Tint, Editorial-Liner, Blush. Sehr 2025." },
+        glowy:    { name: "Bio Glam", emoji: "🌱", vibe: "Natürlich und glamourös zugleich", tip: "<strong>Pro-Tipp:</strong> Clean Beauty trifft Editorial – beweise dass natürliche Produkte genauso wirkungsvoll sein können." },
+        satin:    { name: "Raw Beauty", emoji: "💎", vibe: "Ungeschliffen, ehrlich, schön", tip: "<strong>Pro-Tipp:</strong> Editorial muss keine Perfektion sein – manchmal ist das Unfertige die stärkste Aussage." },
+      },
+    },
+    clean: {
+      bold: {
+        matte:    { name: "Clean Statement", emoji: "🤍", vibe: "Frisch und trotzdem mutig", tip: "<strong>Pro-Tipp:</strong> Clean Girl Base + Bold Lip = das einzige Statement das du brauchst. Keep it simple, keep it strong." },
+        dewy:     { name: "Effortless Red", emoji: "❤️", vibe: "Mühelos, frisch, anziehend", tip: "<strong>Pro-Tipp:</strong> Dewy Skin + roter Lippenstift ist zeitlos. Funktioniert in jeder Situation." },
+        glowy:    { name: "Healthy Glow", emoji: "🌿", vibe: "Lebendig, frisch, energetisch", tip: "<strong>Pro-Tipp:</strong> Nutze tinted moisturizer statt Foundation für maximale Clean-Girl-Energy." },
+        satin:    { name: "Minimal Impact", emoji: "💋", vibe: "Wenig aber wirkungsvoll", tip: "<strong>Pro-Tipp:</strong> Lipliner eine Nuance dunkler als der Lippenstift gibt Definition ohne Foundation-Kleckse." },
+      },
+      nude: {
+        matte:    { name: "Clean Slate", emoji: "⬜", vibe: "Nichts ablenkt, alles perfekt", tip: "<strong>Pro-Tipp:</strong> Investiere in gute Skincare – beim Clean Girl Look IST die Haut das Makeup." },
+        dewy:     { name: "Glass Girl", emoji: "🪟", vibe: "Transparent, strahlend, makellos", tip: "<strong>Pro-Tipp:</strong> Feuchtigkeitsserum + Luminous Primer + wenig Coverage = Glass Skin in 5 Minuten." },
+        glowy:    { name: "Pillow Face", emoji: "☁️", vibe: "Weich, gepflegt, entspannt", tip: "<strong>Pro-Tipp:</strong> Aufgewacht-aussehen als Look – mehr Skincare als Makeup, aber trotzdem curated." },
+        satin:    { name: "Skin First", emoji: "🌸", vibe: "Haut über alles", tip: "<strong>Pro-Tipp:</strong> Der beste Makeup-Look beginnt mit exzellenter Skincare. Kein Cheat-Code." },
+      },
+      glossy: {
+        matte:    { name: "Juicy Clean", emoji: "🍋", vibe: "Frisch, saftig, leicht", tip: "<strong>Pro-Tipp:</strong> Matte Haut + Gloss ist ein beliebter Clean-Girl-Kontrast. Wenig Foundation, viel Gloss." },
+        dewy:     { name: "Glazed Girl", emoji: "🍩", vibe: "Das virale TikTok-Look", tip: "<strong>Pro-Tipp:</strong> Der Glazed Donut Look: Hailey Bieber-Vibes, dewy Haut, Gloss auf Lippen UND Augenlidern." },
+        glowy:    { name: "Dewdrop", emoji: "💧", vibe: "Alles glänzt, alles lebt", tip: "<strong>Pro-Tipp:</strong> Feuchtigkeitsspray über fertiges Makeup ist der Trick für den perfekten Dewdrop-Look." },
+        satin:    { name: "Seoul Girl", emoji: "🇰🇷", vibe: "K-Beauty inspiriert, perfekt gepflegt", tip: "<strong>Pro-Tipp:</strong> K-Beauty-Routine als Basis – Essenz, Serum, Moisturizer – dann minimales Makeup." },
+      },
+      "matte-lip": {
+        matte:    { name: "Porcelain", emoji: "🫖", vibe: "Makellos, zeitlos, elegant", tip: "<strong>Pro-Tipp:</strong> Alles matt = alles muss perfekt sein. Primer überall, setting spray am Ende." },
+        dewy:     { name: "Clean Velvet", emoji: "🌷", vibe: "Weich, tief, gepflegt", tip: "<strong>Pro-Tipp:</strong> Dewy Skin mit mattem Lippenstift braucht gute Lippen-Vorbereitung – Lippenpflege und exfolieren." },
+        glowy:    { name: "Glow + Matte", emoji: "☀️", vibe: "Warm, sonnig, modern", tip: "<strong>Pro-Tipp:</strong> Dieser Look ist one of the easiest – glowy Haut, matte Lippe, nichts an den Augen. Fertig." },
+        satin:    { name: "Modern Clean", emoji: "✨", vibe: "2025 Beauty perfekt zusammengefasst", tip: "<strong>Pro-Tipp:</strong> Das ist der Look des Jahres. Gepflegt, nicht overdone, confidence-boosting." },
+      },
+      ombre: {
+        matte:    { name: "Soft Gradient", emoji: "🌅", vibe: "Sanft, modern, überraschend", tip: "<strong>Pro-Tipp:</strong> Clean Girl + Ombré Lippen ist ein unerwartetes Upgrade das sofort fällt." },
+        dewy:     { name: "Blush Ombré", emoji: "🌸", vibe: "Rosig, frisch, feminin", tip: "<strong>Pro-Tipp:</strong> Rosa zu Mauve-Ombré ist der sauberste Clean-Girl-Gradienten." },
+        glowy:    { name: "Peach Gradient", emoji: "🍑", vibe: "Warm, fruchtig, einladend", tip: "<strong>Pro-Tipp:</strong> Orange-Pfirsich-Rosa Gradient mit glowy Skin ist der perfekte Sommer-Look." },
+        satin:    { name: "Subtle Drama", emoji: "🌺", vibe: "Unauffällig mutig", tip: "<strong>Pro-Tipp:</strong> Ombré bei Clean-Girl-Look: beide Farben maximal 2 Töne auseinander für Natürlichkeit." },
+      },
+      stained: {
+        matte:    { name: "Effortless", emoji: "🍃", vibe: "Als ob du es nicht versucht hast", tip: "<strong>Pro-Tipp:</strong> Das ist der wahre Clean-Girl-Look: Lippentint, gute Haut, das war's." },
+        dewy:     { name: "Just a Tint", emoji: "🫧", vibe: "Minimal, frisch, gepflegt", tip: "<strong>Pro-Tipp:</strong> Lippentint + Lashserum + gute Augenbrauen = der 5-Minuten-Look der aussieht wie eine Stunde." },
+        glowy:    { name: "Healthy Flush", emoji: "🌸", vibe: "Als ob du gerade Sport gemacht hast", tip: "<strong>Pro-Tipp:</strong> Lippentint auf Lippen und Wangen für einen natürlichen Post-Workout-Flush." },
+        satin:    { name: "Your Face But Better", emoji: "💁", vibe: "Du, nur optimiert", tip: "<strong>Pro-Tipp:</strong> Der heilige Gral des Clean-Girl-Looks. Konzentriere dich auf einen Feature und lass den Rest natürlich." },
+      },
+    },
+  };
+
+  // Products database
+  const productsBySelection = {
+    augen: {
+      smokey: ["Schwarzer Kajal", "Lidschatten-Palette (dunkel)", "Lidschatten-Primer", "Mascara", "Concealer (für Kanten)"],
+      natural: ["Braune Lidschatten-Palette", "Mascara", "Nude Eyeliner", "Highlighter (innerer Augenwinkel)"],
+      graphic: ["Wasserfester Eyeliner", "Klebeband (als Schablone)", "Schwarzer Gel-Liner", "Q-Tips für Korrekturen"],
+      glam: ["Glitter-Gel", "Glitter-Primer", "Folie/Chrome Pigmente", "Mascara", "Lash-Serum"],
+      editorial: ["Bunter Eyeliner", "Bodypaint", "Pinsel-Set", "Fixier-Spray", "Klare Mascara"],
+      clean: ["Lash-Serum", "Klare Mascara", "Augenbrauen-Gel", "Concealer", "Wimpernzange"],
+    },
+    lippen: {
+      bold: ["Statement-Lippenstift", "Lipliner (dunkler Ton)", "Setting-Spray", "Lip-Primer"],
+      nude: ["Nude Lipliner", "Nude Lippenstift", "Concealer (für Kontur)"],
+      glossy: ["Lipgloss", "Lippenpflege als Base", "Klarer Gloss"],
+      "matte-lip": ["Mattierender Lippenstift", "Lipliner", "Lippenpflege (davor!)", "Setting-Spray"],
+      ombre: ["Zwei Lipliner", "Lippenstift", "Kleiner Pinsel", "Q-Tip zum Verwischen"],
+      stained: ["Lippentint", "Lippenpflege", "Klarer Gloss (optional)"],
+    },
+    skin: {
+      matte: ["Mattierender Primer", "Full-Coverage Foundation", "Puder", "Mattierendes Setting Spray"],
+      dewy: ["Feuchtigkeitsprimer", "Tinted Moisturizer oder leichte Foundation", "Feuchtigkeitsserum", "Glow Setting Spray"],
+      glowy: ["Luminous Primer", "Highlighter", "Glowing Foundation", "Illuminating Drops"],
+      satin: ["Satin-Primer", "Medium-Coverage Foundation", "Seidenpuder", "Normales Setting Spray"],
+    },
+  };
+
+  function selectOption(card) {
+    const step = parseInt(card.dataset.step);
+    const value = card.dataset.value;
+    const cards = document.querySelectorAll(`.option-card[data-step="${step}"]`);
+    cards.forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    selections[step] = value;
+    document.getElementById(`next${step}`).disabled = false;
+  }
+
+  document.querySelectorAll('.option-card').forEach(card => {
+    card.addEventListener('click', () => selectOption(card));
+  });
+
+  function updateProgress(currentStep) {
+    for (let i = 0; i < 3; i++) {
+      const dot = document.getElementById(`dot${i}`);
+      dot.className = 'progress-dot';
+      if (i < currentStep) dot.classList.add('done');
+      else if (i === currentStep) dot.classList.add('active');
+    }
+  }
+
+  function nextStep(current) {
+    document.getElementById(`step${current}`).classList.remove('active');
+    const next = current + 1;
+    document.getElementById(`step${next}`).classList.add('active');
+    updateProgress(next);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function prevStep(current) {
+    document.getElementById(`step${current}`).classList.remove('active');
+    const prev = current - 1;
+    document.getElementById(`step${prev}`).classList.add('active');
+    updateProgress(prev);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function generateResult() {
+    const augeVal = selections[0];
+    const lipVal = selections[1];
+    const skinVal = selections[2];
+
+    const look = looks[augeVal]?.[lipVal]?.[skinVal];
+    if (!look) return;
+
+    // Augen-Labels
+    const augenLabels = { smokey:'Smokey Eye', natural:'Natural Eye', graphic:'Graphic Liner', glam:'Glitter/Glam', editorial:'Editorial Art', clean:'Clean & Minimal' };
+    const lipLabels = { bold:'Bold Lip', nude:'Nude Lip', glossy:'Glossy', 'matte-lip':'Matte Lip', ombre:'Ombré', stained:'Stained Lips' };
+    const skinLabels = { matte:'Matte Finish', dewy:'Dewy Skin', glowy:'Glowy', satin:'Satin Finish' };
+
+    document.getElementById('resultName').textContent = look.name;
+    document.getElementById('resultEmoji').textContent = look.emoji;
+    document.getElementById('resultTitle').textContent = look.name;
+    document.getElementById('resultVibeShort').textContent = look.vibe;
+    document.getElementById('resultVibe').textContent = '"' + look.vibe + '"';
+    document.getElementById('detailAugen').textContent = augenLabels[augeVal];
+    document.getElementById('detailLippen').textContent = lipLabels[lipVal];
+    document.getElementById('detailSkin').textContent = skinLabels[skinVal];
+    document.getElementById('resultTip').innerHTML = look.tip;
+
+    // Products
+    const products = [
+      ...(productsBySelection.augen[augeVal] || []),
+      ...(productsBySelection.lippen[lipVal] || []),
+      ...(productsBySelection.skin[skinVal] || []),
+    ];
+    const uniqueProducts = [...new Set(products)];
+    const list = document.getElementById('productsList');
+    list.innerHTML = uniqueProducts.map(p => `<span class="product-tag">${p}</span>`).join('');
+
+    // Show result
+    document.getElementById('step2').classList.remove('active');
+    document.getElementById('result').classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function resetAll() {
+    selections[0] = null; selections[1] = null; selections[2] = null;
+    document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('result').classList.remove('active');
+    ['next0','next1','next2'].forEach(id => document.getElementById(id).disabled = true);
+    document.getElementById('step0').classList.add('active');
+    updateProgress(0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function copyResult() {
+    const name = document.getElementById('resultName').textContent;
+    const augen = document.getElementById('detailAugen').textContent;
+    const lippen = document.getElementById('detailLippen').textContent;
+    const skin = document.getElementById('detailSkin').textContent;
+    const text = `Mein Look: ${name}\n👁️ Augen: ${augen}\n💋 Lippen: ${lippen}\n✨ Skin: ${skin}\n\nvon celine-zoeee.github.io`;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = event.target;
+      btn.textContent = 'Kopiert! ✓';
+      setTimeout(() => btn.textContent = 'Look kopieren ✦', 2000);
+    });
+  }
+</script>
+
+</body>
+</html>
